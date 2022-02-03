@@ -3,6 +3,16 @@ import * as calculate from './modules/calculate';
 import * as mechanic from './modules/mechanic';
 import config from './config';
 
+process.on('uncaughtException', (err) => {
+  if (err instanceof Error) {
+    console.log(`ОШИБКА: ${err.message}`);
+  } else {
+    console.log(`ОШИБКА: ${err}`);
+  }
+
+  process.exit();
+});
+
 (async () => {
   const client = Binance({ apiKey: config.apiKey, apiSecret: config.apiSecret });
 
