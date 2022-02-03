@@ -52,10 +52,10 @@ process.on('uncaughtException', (err) => {
 
     let orderAskInfo = await client.getOrder({ symbol: config.symbol, orderId: orderAsk.orderId });
 
-    do {
+    while (orderAskInfo.isWorking) {
       await mechanic.sleep(config.checkOrderMs);
       orderAskInfo = await client.getOrder({ symbol: config.symbol, orderId: orderAsk.orderId });
-    } while(orderAskInfo.isWorking);
+    }
 
     if (orderAskInfo.status !== OrderStatus.FILLED && orderAskInfo.status !== OrderStatus.PARTIALLY_FILLED) {
       throw new Error(`ПОКУПКА. Ордер (id: ${orderAsk.orderId}) отклонен со статусом: ${orderAskInfo.status}`);
@@ -79,10 +79,10 @@ process.on('uncaughtException', (err) => {
 
       let orderBidInfo = await client.getOrder({ symbol: config.symbol, orderId: orderBid.orderId });
 
-      do {
+      while (orderBidInfo.isWorking) {
         await mechanic.sleep(config.checkOrderMs);
         orderBidInfo = await client.getOrder({ symbol: config.symbol, orderId: orderBidInfo.orderId });
-      } while(orderBidInfo.isWorking);
+      }
 
       if (orderBidInfo.status !== OrderStatus.FILLED && orderBidInfo.status !== OrderStatus.PARTIALLY_FILLED) {
         throw new Error(`ПРОДАЖА. Ордер (id: ${orderBid.orderId}) отклонен со статусом: ${orderBidInfo.status}`);
