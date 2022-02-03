@@ -58,7 +58,7 @@ process.on('uncaughtException', (err) => {
     }
 
     if (orderAskInfo.status !== OrderStatus.FILLED && orderAskInfo.status !== OrderStatus.PARTIALLY_FILLED) {
-      throw new Error(`ПОКУПКА. Ордер (id: ${orderAsk.orderId}) отклонен со статусом: ${orderAskInfo.status}`);
+      throw new Error(`ПОКУПКА. Ордер (id: ${orderAskInfo.orderId}) отклонен со статусом: ${orderAskInfo.status}`);
     }
 
     let bidSum = priceBid;
@@ -85,13 +85,13 @@ process.on('uncaughtException', (err) => {
       }
 
       if (orderBidInfo.status !== OrderStatus.FILLED && orderBidInfo.status !== OrderStatus.PARTIALLY_FILLED) {
-        throw new Error(`ПРОДАЖА. Ордер (id: ${orderBid.orderId}) отклонен со статусом: ${orderBidInfo.status}`);
+        throw new Error(`ПРОДАЖА. Ордер (id: ${orderBidInfo.orderId}) отклонен со статусом: ${orderBidInfo.status}`);
       }
 
       execBidSum += +orderBidInfo.executedQty;
 
       if (orderBidInfo.status === OrderStatus.PARTIALLY_FILLED) {
-        bidSum += bidSum - +orderBidInfo.executedQty;
+        bidSum += +orderBidInfo.origQty - +orderBidInfo.executedQty;
       }
 
       if (orderBidInfo.status === OrderStatus.FILLED) {
@@ -99,10 +99,6 @@ process.on('uncaughtException', (err) => {
       }
     }
 
-    console.log(
-      `КОНЕЦ. Пара: ${config.symbol}. Купили: ${priceAsk}/${orderAskInfo.price}. Продали: ${priceBid}/${execBidSum}`
-    );
-
-    break;
+    console.log(`КОНЕЦ. Пара: ${config.symbol}. Купили по: ${priceAsk}. Продали по: ${priceBid}`);
   }
 })();
