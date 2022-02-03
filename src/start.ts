@@ -38,13 +38,11 @@ process.on('uncaughtException', (err) => {
       continue;
     }
 
-    const quantityAsk = config.buy / priceAsk;
-
     const orderAsk = await client.order({
       type: OrderType.LIMIT,
       symbol: config.symbol,
       side: OrderSide.BUY,
-      quantity: quantityAsk.toFixed(config.fixedCoin),
+      quantity: (await calculate.quantityAsk(priceAsk)).toFixed(config.fixedCoin),
       price: priceAsk.toFixed(config.fixedPrice),
     });
 

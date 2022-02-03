@@ -19,6 +19,13 @@ const priceBid = async (price: number): Promise<number> => {
   return price + addition;
 };
 
+const quantityAsk = async (priceAsk: number): Promise<number> => {
+  const quantityAsk = config.buy / priceAsk;
+  const quantityFixed = +quantityAsk.toFixed(config.fixedCoin);
+
+  return quantityAsk > quantityFixed ? quantityFixed + config.minQuantity : quantityFixed;
+};
+
 const jumpCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
   const slicedCandle = candle.slice(-config.jumpSteps).reverse();
   // const up = sc.reduce((r, v, i, a) => !(i === 0 || i > 1 && !r) && v.close < a[i-1].close);
@@ -61,4 +68,4 @@ const jumpCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
   return down;
 };
 
-export { priceAsk, priceBid, jumpCandle };
+export { priceAsk, priceBid, quantityAsk, jumpCandle };
