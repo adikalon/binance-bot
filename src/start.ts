@@ -57,7 +57,7 @@ process.on('uncaughtException', (err) => {
     const priceBid = await calculate.priceBid(priceAsk);
     const daily = await client.avgPrice({ symbol: config.symbol }) as AvgPriceResult;
 
-    if (priceAsk+9999 > +daily.price) {
+    if (priceAsk > +daily.price) {
       console.log(`Цена на покупку (${priceAsk}) выше средней цены за сутки (${daily.price})`);
       await mechanic.sleep(config.checkOrderMs);
       continue;
