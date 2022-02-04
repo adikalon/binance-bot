@@ -65,6 +65,12 @@ process.on('uncaughtException', (err) => {
 logger.info('Скрипт запущен');
 
 (async () => {
+  if (await mechanic.issetError()) {
+    // TODO: Скрипт запущен без исправления ошибки
+    console.log('Скрипт запущен без исправления ошибки');
+    process.exit(1);
+  }
+
   const client = Binance({ apiKey: config.apiKey, apiSecret: config.apiSecret });
   const symbolInfo = (await client.exchangeInfo()).symbols.find(e => e.symbol === config.symbol);
 
