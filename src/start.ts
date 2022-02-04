@@ -1,16 +1,41 @@
 import Binance, { AvgPriceResult, OrderSide, OrderStatus, OrderType } from 'binance-api-node';
+import * as winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
+import * as path from 'path';
 import * as calculate from './modules/calculate';
 import * as mechanic from './modules/mechanic';
 import config from './config';
 
+const logger = winston.createLogger({
+  transports: [
+    new winston.transports.Console({
+      level: 'debug',
+      format: winston.format.combine(
+        winston.format.colorize({ all: true }),
+        winston.format.timestamp({ format: 'hh:mm:ss.SSS' }),
+        winston.format.printf((info) => `[${info['timestamp']}] ${info.level}: ${info.message}`)
+      ),
+    }),
+    new DailyRotateFile({
+      level: 'debug',
+      filename: `${path.join(__dirname, '..', 'logs')}/%DATE%.log`,
+      datePattern: 'YYYY-MM-DD',
+      format: winston.format.combine(
+        winston.format.timestamp({ format: 'hh:mm:ss.SSS' }),
+        winston.format.printf((info) => `[${info['timestamp']}] ${info.level}: ${info.message}`)
+      ),
+    }),
+  ],
+});
+
 process.on('uncaughtException', (err) => {
   if (err instanceof Error) {
-    console.log(`ОШИБКА: ${err.message}`);
+    logger.error(err.message);
   } else {
-    console.log(`ОШИБКА: ${err}`);
+    logger.error(err);
   }
 
-  process.exit();
+  process.exit(1);
 });
 
 (async () => {
@@ -32,7 +57,7 @@ process.on('uncaughtException', (err) => {
     const priceBid = await calculate.priceBid(priceAsk);
     const daily = await client.avgPrice({ symbol: config.symbol }) as AvgPriceResult;
 
-    if (priceAsk > +daily.price) {
+    if (priceAsk+9999 > +daily.price) {
       console.log(`Цена на покупку (${priceAsk}) выше средней цены за сутки (${daily.price})`);
       await mechanic.sleep(config.checkOrderMs);
       continue;
@@ -61,16 +86,15 @@ process.on('uncaughtException', (err) => {
       throw new Error(`ПОКУПКА. Ордер (id: ${orderAskInfo.orderId}) отклонен со статусом: ${orderAskInfo.status}`);
     }
 
-    let bidSum = priceBid;
-    let execBidSum = 0;
+    let quantityBid = +orderAskInfo.executedQty;
 
     while (true) {
       const orderBid = await client.order({
         type: OrderType.LIMIT,
         symbol: config.symbol,
         side: OrderSide.SELL,
-        quantity: orderAskInfo.executedQty,
-        price: bidSum.toFixed(config.fixedPrice),
+        quantity: quantityBid.toFixed(config.fixedCoin),
+        price: priceBid.toFixed(config.fixedPrice),
       });
 
       if (orderBid.status !== OrderStatus.NEW) {
@@ -88,10 +112,8 @@ process.on('uncaughtException', (err) => {
         throw new Error(`ПРОДАЖА. Ордер (id: ${orderBidInfo.orderId}) отклонен со статусом: ${orderBidInfo.status}`);
       }
 
-      execBidSum += +orderBidInfo.executedQty;
-
       if (orderBidInfo.status === OrderStatus.PARTIALLY_FILLED) {
-        bidSum += +orderBidInfo.origQty - +orderBidInfo.executedQty;
+        quantityBid = +orderBidInfo.origQty - +orderBidInfo.executedQty;
       }
 
       if (orderBidInfo.status === OrderStatus.FILLED) {
@@ -100,5 +122,7 @@ process.on('uncaughtException', (err) => {
     }
 
     console.log(`КОНЕЦ. Пара: ${config.symbol}. Купили по: ${priceAsk}. Продали по: ${priceBid}`);
+
+    break;
   }
 })();

@@ -31,6 +31,7 @@
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
     "useUnknownInCatchVariables": true,
-    "preserveWatchOutput": true
+    "preserveWatchOutput": true,
+    "esModuleInterop": true
   }
 }
