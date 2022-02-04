@@ -30,14 +30,6 @@ const logger = winston.createLogger({
 
 const loggerError = winston.createLogger({
   transports: [
-    new winston.transports.Console({
-      level: 'error',
-      format: winston.format.combine(
-        winston.format.colorize({ all: true }),
-        winston.format.timestamp({ format: 'HH:mm:ss.SSS' }),
-        winston.format.printf((info) => `[${info['timestamp']}] ${info.level}: ${info.message}`)
-      ),
-    }),
     new winston.transports.File({
       level: 'error',
       filename: `${path.join(__dirname, '..', 'logs')}/error.log`,
