@@ -1,4 +1,6 @@
-import { CandleChartResult, OrderBook } from 'binance-api-node';
+import { Account, CandleChartResult, OrderBook, Symbol, SymbolLotSizeFilter, SymbolPriceFilter } from 'binance-api-node';
+import { SymbolConfig } from './../interfaces/symbol-config';
+import { Commissions } from './../interfaces/commissions';
 import config from './../config';
 
 const priceAsk = async (book: OrderBook, candle: CandleChartResult[]): Promise<number> => {
@@ -12,18 +14,18 @@ const priceAsk = async (book: OrderBook, candle: CandleChartResult[]): Promise<n
   return askPrice;
 };
 
-const priceBid = async (price: number): Promise<number> => {
-  const percent = config.binanceCommission * 2 + config.profitPercent;
+const priceBid = async (price: number, commissions: Commissions): Promise<number> => {
+  const percent = commissions.taker + commissions.maker + config.profitPercent;
   const addition = price * percent / 100;
 
   return price + addition;
 };
 
-const quantityAsk = async (priceAsk: number): Promise<number> => {
+const quantityAsk = async (priceAsk: number, symbolConfig: SymbolConfig): Promise<number> => {
   const quantityAsk = config.buy / priceAsk;
-  const quantityFixed = +quantityAsk.toFixed(config.fixedCoin);
+  const quantityFixed = +quantityAsk.toFixed(symbolConfig.fixedCoin);
 
-  return quantityAsk > quantityFixed ? quantityFixed + config.minQuantity : quantityFixed;
+  return quantityAsk > quantityFixed ? quantityFixed + symbolConfig.minQuantity : quantityFixed;
 };
 
 const jumpCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
@@ -68,4 +70,30 @@ const jumpCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
   return down;
 };
 
-export { priceAsk, priceBid, quantityAsk, jumpCandle };
+const symbolConfig = async (symbol: Symbol): Promise<SymbolConfig> => {
+  const priceFilter = symbol.filters.find(e => e.filterType === 'PRICE_FILTER') as SymbolPriceFilter;
+  const lotSize = symbol.filters.find(e => e.filterType === 'LOT_SIZE') as SymbolLotSizeFilter;
+
+  if (!priceFilter || !lotSize || !priceFilter.tickSize || !lotSize.stepSize) {
+    throw new Error('Не удалось получить все данные по символу');
+  }
+
+  const fixedPrice = priceFilter.tickSize.replace(/^[^\.]\./, '').replace(/0+$/, '').length;
+  const fixedCoin = lotSize.stepSize.replace(/^[^\.]\./, '').replace(/0+$/, '').length;
+  const minQuantity = +lotSize.minQty.replace(/0+$/, '');
+
+  return { fixedPrice, fixedCoin, minQuantity };
+};
+
+const commissions = async (account: Account): Promise<Commissions> => {
+  if (!account.makerCommission || !account.takerCommission) {
+    throw new Error('Не удалось получить комиссии');
+  }
+
+  return {
+    maker: account.makerCommission / 100,
+    taker: account.takerCommission / 100,
+  }
+}
+
+export { priceAsk, priceBid, quantityAsk, jumpCandle, symbolConfig, commissions };
