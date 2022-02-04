@@ -12,7 +12,7 @@ const logger = winston.createLogger({
       level: 'debug',
       format: winston.format.combine(
         winston.format.colorize({ all: true }),
-        winston.format.timestamp({ format: 'hh:mm:ss.SSS' }),
+        winston.format.timestamp({ format: 'HH:mm:ss.SSS' }),
         winston.format.printf((info) => `[${info['timestamp']}] ${info.level}: ${info.message}`)
       ),
     }),
@@ -21,7 +21,28 @@ const logger = winston.createLogger({
       filename: `${path.join(__dirname, '..', 'logs')}/%DATE%.log`,
       datePattern: 'YYYY-MM-DD',
       format: winston.format.combine(
-        winston.format.timestamp({ format: 'hh:mm:ss.SSS' }),
+        winston.format.timestamp({ format: 'HH:mm:ss.SSS' }),
+        winston.format.printf((info) => `[${info['timestamp']}] ${info.level}: ${info.message}`)
+      ),
+    }),
+  ],
+});
+
+const loggerError = winston.createLogger({
+  transports: [
+    new winston.transports.Console({
+      level: 'error',
+      format: winston.format.combine(
+        winston.format.colorize({ all: true }),
+        winston.format.timestamp({ format: 'HH:mm:ss.SSS' }),
+        winston.format.printf((info) => `[${info['timestamp']}] ${info.level}: ${info.message}`)
+      ),
+    }),
+    new winston.transports.File({
+      level: 'error',
+      filename: `${path.join(__dirname, '..', 'logs')}/error.log`,
+      format: winston.format.combine(
+        winston.format.timestamp({ format: 'HH:mm:ss.SSS' }),
         winston.format.printf((info) => `[${info['timestamp']}] ${info.level}: ${info.message}`)
       ),
     }),
@@ -30,8 +51,10 @@ const logger = winston.createLogger({
 
 process.on('uncaughtException', (err) => {
   if (err instanceof Error) {
+    loggerError.error(err.message);
     logger.error(err.message);
   } else {
+    loggerError.error(err);
     logger.error(err);
   }
 
@@ -39,6 +62,7 @@ process.on('uncaughtException', (err) => {
 });
 
 // TODO: Старт скрипта
+logger.info('Скрипт запущен');
 
 (async () => {
   const client = Binance({ apiKey: config.apiKey, apiSecret: config.apiSecret });
