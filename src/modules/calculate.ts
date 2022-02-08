@@ -28,10 +28,8 @@ const quantityAsk = async (priceAsk: number, symbolConfig: SymbolConfig): Promis
   return quantityAsk > quantityFixed ? quantityFixed + symbolConfig.minQuantity : quantityFixed;
 };
 
-const jumpCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
-  const slicedCandle = candle.slice(-config.jumpSteps).reverse();
-  // const up = sc.reduce((r, v, i, a) => !(i === 0 || i > 1 && !r) && v.close < a[i-1].close);
-  // const down = sc.reduce((r, v, i, a) => !(i === 0 || i > 1 && !r) && v.close > a[i-1].close);
+const waveCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
+  const slicedCandle = candle.slice(-config.waveSteps).reverse();
 
   const up = slicedCandle.reduce((result, value, index, array) => {
     if (index === 0 || index > 1 && !result) {
@@ -96,4 +94,4 @@ const commissions = async (account: Account): Promise<Commissions> => {
   }
 }
 
-export { priceAsk, priceBid, quantityAsk, jumpCandle, symbolConfig, commissions };
+export { priceAsk, priceBid, quantityAsk, waveCandle, symbolConfig, commissions };

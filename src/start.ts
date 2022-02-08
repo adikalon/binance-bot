@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as calculate from './modules/calculate';
 import * as mechanic from './modules/mechanic';
 import config from './config';
+import { OneLog } from './modules/one-log';
 
 const logger = winston.createLogger({
   transports: [
@@ -53,13 +54,13 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// TODO: Старт скрипта
-logger.info('Скрипт запущен');
+const log = new OneLog(logger);
 
 (async () => {
+  await mechanic.sleep(0);
+
   if (await mechanic.issetError()) {
-    // TODO: Скрипт запущен без исправления ошибки
-    console.log('Скрипт запущен без исправления ошибки');
+    logger.warn('Скрипт запущен без исправления ошибки');
     process.exit(1);
   }
 
@@ -67,21 +68,18 @@ logger.info('Скрипт запущен');
   const symbolInfo = (await client.exchangeInfo()).symbols.find(e => e.symbol === config.symbol);
 
   if (!symbolInfo) {
-    // TODO: Информация о символе не получена
-    throw new Error('Информация о символе не получена');
+    throw new Error('Не получена информация о символе');
   }
 
   const symbolConfig = await calculate.symbolConfig(symbolInfo);
   const commissions = await calculate.commissions(await client.accountInfo());
 
   while (true) {
-    // TODO: Старт итерации
-    console.log(`\nСТАРТ. Пара: ${config.symbol}`);
+    log.send('info', 'start', `Старт. ${config.symbol} / ${config.buy}$ / ${config.profitPercent}%`);
     const candle = await client.candles({ symbol: config.symbol, interval: '1m', limit: config.candleSteps });
 
-    if (await calculate.jumpCandle(candle)) {
-      // TODO: Скачек в свече
-      console.log('Скачек в свече');
+    if (await calculate.waveCandle(candle)) {
+      log.send('info', 'wave', 'Волна в свече');
       await mechanic.sleep(config.checkOrderMs);
       continue;
     }
@@ -92,24 +90,27 @@ logger.info('Скрипт запущен');
     const daily = await client.avgPrice({ symbol: config.symbol }) as AvgPriceResult;
 
     if (priceAsk > +daily.price) {
-      // TODO: Цена на покупку выше средней цены за сутки
-      console.log(`Цена на покупку (${priceAsk}) выше средней цены за сутки (${daily.price})`);
+      log.send('info', 'jump', 'Цена на покупку выше средней цены за сутки');
+      logger.debug(`Цена на покупку (${priceAsk}) выше средней цены за сутки (${daily.price})`);
       await mechanic.sleep(config.checkOrderMs);
       continue;
     }
 
-    // TODO: Попытка покупки
+    logger.info(`Цены. Покупка: ${priceAsk}, Продажа: ${priceBid}`);
+    const orderAskQty = (await calculate.quantityAsk(priceAsk, symbolConfig)).toFixed(symbolConfig.fixedCoin);
+    const orderAskPrice = priceAsk.toFixed(symbolConfig.fixedPrice);
+    logger.info(`Покупаем. Цена: ${orderAskPrice}, Кол-во: ${orderAskQty}`);
+
     const orderAsk = await client.order({
       type: OrderType.LIMIT,
       symbol: config.symbol,
       side: OrderSide.BUY,
-      quantity: (await calculate.quantityAsk(priceAsk, symbolConfig)).toFixed(symbolConfig.fixedCoin),
-      price: priceAsk.toFixed(symbolConfig.fixedPrice),
+      quantity: orderAskQty,
+      price: orderAskPrice,
     });
 
     if (orderAsk.status !== OrderStatus.NEW) {
-      // TODO: Ордер на покупку не принят
-      throw new Error(`ПОКУПКА. Ордер (id: ${orderAsk.orderId}) не принят со статусом: ${orderAsk.status}`);
+      throw new Error(`Ордер (${orderAsk.orderId}) не принят со статусом: ${orderAsk.status}`);
     }
 
     let orderAskInfo = await client.getOrder({ symbol: config.symbol, orderId: orderAsk.orderId });
@@ -120,27 +121,28 @@ logger.info('Скрипт запущен');
     }
 
     if (orderAskInfo.status !== OrderStatus.FILLED && orderAskInfo.status !== OrderStatus.PARTIALLY_FILLED) {
-      // TODO: Ордер на покупку отклонен
-      throw new Error(`ПОКУПКА. Ордер (id: ${orderAskInfo.orderId}) отклонен со статусом: ${orderAskInfo.status}`);
+      throw new Error(`Ордер (${orderAskInfo.orderId}) отклонен со статусом: ${orderAskInfo.status}`);
     }
 
-    // TODO: Ордер куплен
+    logger.info(`Купили. Цена: ${orderAskInfo.price}, Кол-во: ${orderAskInfo.executedQty}`);
 
     let quantityBid = +orderAskInfo.executedQty;
+    const orderBidPrice = priceBid.toFixed(symbolConfig.fixedPrice);
 
     while (true) {
-      // TODO: Попытка продажи
+      let orderBidQty = quantityBid.toFixed(symbolConfig.fixedCoin);
+      logger.info(`Продаем. Цена: ${orderBidPrice}, Кол-во: ${orderBidQty}`);
+
       const orderBid = await client.order({
         type: OrderType.LIMIT,
         symbol: config.symbol,
         side: OrderSide.SELL,
-        quantity: quantityBid.toFixed(symbolConfig.fixedCoin),
-        price: priceBid.toFixed(symbolConfig.fixedPrice),
+        quantity: orderBidQty,
+        price: orderBidPrice,
       });
 
       if (orderBid.status !== OrderStatus.NEW) {
-        // TODO: Ордер на продажу не принят
-        throw new Error(`ПРОДАЖА. Ордер (id: ${orderBid.orderId}) не принят со статусом: ${orderBid.status}`);
+        throw new Error(`Ордер (${orderBid.orderId}) не принят со статусом: ${orderBid.status}`);
       }
 
       let orderBidInfo = await client.getOrder({ symbol: config.symbol, orderId: orderBid.orderId });
@@ -151,22 +153,20 @@ logger.info('Скрипт запущен');
       }
 
       if (orderBidInfo.status !== OrderStatus.FILLED && orderBidInfo.status !== OrderStatus.PARTIALLY_FILLED) {
-        // TODO: Ордер на продажу отклонен
-        throw new Error(`ПРОДАЖА. Ордер (id: ${orderBidInfo.orderId}) отклонен со статусом: ${orderBidInfo.status}`);
+        throw new Error(`Ордер (${orderBidInfo.orderId}) отклонен со статусом: ${orderBidInfo.status}`);
       }
 
       if (orderBidInfo.status === OrderStatus.PARTIALLY_FILLED) {
-        // TODO: Ордер частично продан
+        logger.info(`Продали частично. Цена: ${orderBidInfo.price}, Кол-во: ${orderBidInfo.executedQty}`);
         quantityBid = +orderBidInfo.origQty - +orderBidInfo.executedQty;
       }
 
       if (orderBidInfo.status === OrderStatus.FILLED) {
-        // TODO: Ордер продан
+        logger.info(`Продали. Цена: ${orderBidInfo.price}, Кол-во: ${orderBidInfo.executedQty}`);
         break;
       }
     }
 
-    // TODO: Конец
-    console.log(`КОНЕЦ. Пара: ${config.symbol}. Купили по: ${priceAsk}. Продали по: ${priceBid}`);
+    await log.clear();
   }
 })();
