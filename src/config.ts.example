@@ -1,5 +1,4 @@
 export default {
-  // Метка: adikalon
   apiKey: '',
   apiSecret: '',
 
