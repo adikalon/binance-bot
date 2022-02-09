@@ -1,4 +1,4 @@
-import { Account, CandleChartResult, OrderBook, Symbol, SymbolLotSizeFilter, SymbolPriceFilter } from 'binance-api-node';
+import { Account, CandleChartResult, OrderBook, Symbol, SymbolLotSizeFilter, SymbolMinNotionalFilter, SymbolPriceFilter } from 'binance-api-node';
 import { SymbolConfig } from './../interfaces/symbol-config';
 import { Commissions } from './../interfaces/commissions';
 import config from './../config';
@@ -71,16 +71,18 @@ const waveCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
 const symbolConfig = async (symbol: Symbol): Promise<SymbolConfig> => {
   const priceFilter = symbol.filters.find(e => e.filterType === 'PRICE_FILTER') as SymbolPriceFilter;
   const lotSize = symbol.filters.find(e => e.filterType === 'LOT_SIZE') as SymbolLotSizeFilter;
+  const minNotional = symbol.filters.find(e => e.filterType === 'MIN_NOTIONAL') as SymbolMinNotionalFilter & { minNotional: string };
 
-  if (!priceFilter || !lotSize || !priceFilter.tickSize || !lotSize.stepSize) {
+  if (!priceFilter || !lotSize || !minNotional || !priceFilter.tickSize || !lotSize.stepSize || !minNotional.minNotional) {
     throw new Error('Не удалось получить все данные по символу');
   }
 
   const fixedPrice = priceFilter.tickSize.replace(/^[^\.]\./, '').replace(/0+$/, '').length;
   const fixedCoin = lotSize.stepSize.replace(/^[^\.]\./, '').replace(/0+$/, '').length;
   const minQuantity = +lotSize.minQty.replace(/0+$/, '');
+  const minBuy = +minNotional.minNotional.replace(/0+$/, '');
 
-  return { fixedPrice, fixedCoin, minQuantity };
+  return { fixedPrice, fixedCoin, minQuantity, minBuy };
 };
 
 const commissions = async (account: Account): Promise<Commissions> => {
