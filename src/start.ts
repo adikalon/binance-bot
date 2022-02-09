@@ -139,7 +139,7 @@ const log = new OneLog(logger);
       const profitSum = quantityBid * priceBid;
 
       if (profitSum < symbolConfig.minBuy) {
-        throw new Error(`Нельзя продать (${profitSum}) на сумму меньше положеной (${symbolConfig.minBuy})`);
+        throw new Error(`Нельзя продать (${profitSum}) на сумму меньше положенной (${symbolConfig.minBuy})`);
       }
 
       let orderBidQty = quantityBid.toFixed(symbolConfig.fixedCoin);
