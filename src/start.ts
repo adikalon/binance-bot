@@ -115,7 +115,7 @@ const log = new OneLog(logger);
 
     let orderAskInfo = await client.getOrder({ symbol: config.symbol, orderId: orderAsk.orderId });
 
-    while (orderAskInfo.isWorking) {
+    while (orderAskInfo.status === OrderStatus.NEW) {
       await mechanic.sleep(config.checkOrderMs);
       orderAskInfo = await client.getOrder({ symbol: config.symbol, orderId: orderAsk.orderId });
     }
@@ -147,7 +147,7 @@ const log = new OneLog(logger);
 
       let orderBidInfo = await client.getOrder({ symbol: config.symbol, orderId: orderBid.orderId });
 
-      while (orderBidInfo.isWorking) {
+      while (orderBidInfo.status === OrderStatus.NEW) {
         await mechanic.sleep(config.checkOrderMs);
         orderBidInfo = await client.getOrder({ symbol: config.symbol, orderId: orderBidInfo.orderId });
       }
