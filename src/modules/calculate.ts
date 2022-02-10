@@ -1,7 +1,8 @@
 import { Account, CandleChartResult, OrderBook, Symbol, SymbolLotSizeFilter, SymbolMinNotionalFilter, SymbolPriceFilter } from 'binance-api-node';
 import { SymbolConfig } from './../interfaces/symbol-config';
-import { Commissions } from './../interfaces/commissions';
 import config from './../config';
+import { ParamsQuantityAsk } from './../interfaces/params-quantity-ask';
+import { ParamsQuantityBid } from './../interfaces/params-quantity-bid';
 
 const priceAsk = async (book: OrderBook, candle: CandleChartResult[]): Promise<number> => {
   const askMin = book.asks[0]?.price;
@@ -14,18 +15,30 @@ const priceAsk = async (book: OrderBook, candle: CandleChartResult[]): Promise<n
   return askPrice;
 };
 
-const priceBid = async (price: number, commissions: Commissions): Promise<number> => {
-  const percent = commissions.taker + commissions.maker + config.profitPercent;
+const priceBid = async (price: number, commission: number): Promise<number> => {
+  const percent = commission * 2 + config.profitPercent;
   const addition = price * percent / 100;
 
   return price + addition;
 };
 
-const quantityAsk = async (priceAsk: number, symbolConfig: SymbolConfig): Promise<number> => {
-  const quantityAsk = config.buy / priceAsk;
-  const quantityFixed = +quantityAsk.toFixed(symbolConfig.fixedCoin);
+const quantityAsk = async (params: ParamsQuantityAsk): Promise<number> => {
+  let qty = config.buy / params.priceAsk;
 
-  return quantityAsk > quantityFixed ? quantityFixed + symbolConfig.minQuantity : quantityFixed;
+  if ((qty - qty * params.commission / 100) * params.priceBid < params.symbolConfig.minBuy) {
+    qty += params.symbolConfig.minQuantity;
+  }
+
+  const quantityFixed = +qty.toFixed(params.symbolConfig.fixedCoin);
+
+  return qty > quantityFixed ? quantityFixed + params.symbolConfig.minQuantity : quantityFixed;
+};
+
+const quantityBid = async (params: ParamsQuantityBid): Promise<number> => {
+  const pwp = params.purchased - params.purchased * params.commission / 100;
+  const pwpFixed = +pwp.toFixed(params.symbolConfig.fixedCoin);
+
+  return pwpFixed > pwp ? pwpFixed - params.symbolConfig.minQuantity : pwpFixed;
 };
 
 const waveCandle = async (candle: CandleChartResult[]): Promise<boolean> => {
@@ -85,15 +98,12 @@ const symbolConfig = async (symbol: Symbol): Promise<SymbolConfig> => {
   return { fixedPrice, fixedCoin, minQuantity, minBuy };
 };
 
-const commissions = async (account: Account): Promise<Commissions> => {
-  if (!account.makerCommission || !account.takerCommission) {
-    throw new Error('Не удалось получить комиссии');
+const commission = async (account: Account): Promise<number> => {
+  if (!account.makerCommission) {
+    throw new Error('Не удалось получить комиссию');
   }
 
-  return {
-    maker: account.makerCommission / 100,
-    taker: account.takerCommission / 100,
-  }
+  return account.makerCommission / 100;
 }
 
-export { priceAsk, priceBid, quantityAsk, waveCandle, symbolConfig, commissions };
+export { priceAsk, priceBid, quantityAsk, quantityBid, waveCandle, symbolConfig, commission };

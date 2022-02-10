@@ -77,7 +77,7 @@ const log = new OneLog(logger);
     throw new Error(`Нельзя купить (${config.buy}) меньше, чем положено (${symbolConfig.minBuy})`);
   }
 
-  const commissions = await calculate.commissions(await client.accountInfo());
+  const commission = await calculate.commission(await client.accountInfo());
 
   while (true) {
     log.send('info', 'start', `Старт. ${config.symbol} / ${config.buy}$ / ${config.profitPercent}%`);
@@ -91,7 +91,7 @@ const log = new OneLog(logger);
 
     const book = await client.book({ symbol: config.symbol, limit: 1 });
     const priceAsk = await calculate.priceAsk(book, candle);
-    const priceBid = await calculate.priceBid(priceAsk, commissions);
+    const priceBid = await calculate.priceBid(priceAsk, commission);
     const daily = await client.avgPrice({ symbol: config.symbol }) as AvgPriceResult;
     const avgPrice = (priceAsk + priceBid) / 2;
 
@@ -103,7 +103,8 @@ const log = new OneLog(logger);
     }
 
     logger.info(`Цены. Покупка: ${priceAsk}, Продажа: ${priceBid}`);
-    const orderAskQty = (await calculate.quantityAsk(priceAsk, symbolConfig)).toFixed(symbolConfig.fixedCoin);
+    const paramsQuantityAsk = { priceAsk, priceBid, commission, symbolConfig };
+    const orderAskQty = (await calculate.quantityAsk(paramsQuantityAsk)).toFixed(symbolConfig.fixedCoin);
     const orderAskPrice = priceAsk.toFixed(symbolConfig.fixedPrice);
     logger.info(`Покупаем. Цена: ${orderAskPrice}, Кол-во: ${orderAskQty}`);
 
@@ -132,7 +133,8 @@ const log = new OneLog(logger);
 
     logger.info(`Купили. Цена: ${orderAskInfo.price}, Кол-во: ${orderAskInfo.executedQty}`);
 
-    let quantityBid = +orderAskInfo.executedQty;
+    const paramsQuantityBid = { purchased: +orderAskInfo.executedQty, commission, symbolConfig };
+    let quantityBid = await calculate.quantityBid(paramsQuantityBid);
     const orderBidPrice = priceBid.toFixed(symbolConfig.fixedPrice);
 
     while (true) {
